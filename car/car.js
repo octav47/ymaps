@@ -10,33 +10,46 @@ var Car = (function () {
 
     // делаем заготовку для кол-ва направлений. 4, 8 или 16 (+, x, *)
     var directionsVariants = {
+        // стрелочки для разных направлений (нет стрелочек для 16)
+        arrows: {
+            w: '←',
+            sw: '↙',
+            s: '↓',
+            se: '↘',
+            e: '→',
+            ne: '↗',
+            n: '↑',
+            nw: '↖'
+        },
+        // возможные направления для разной степени точности
         classes: {
             16: ['w', 'sww', 'sw', 'ssw', 's', 'sse', 'se', 'see', 'e', 'nee', 'ne', 'nne', 'n', 'nnw', 'nw', 'nww'],
             8: ['w', 'sw', 's', 'se', 'e', 'ne', 'n', 'nw'],
             4: ['w', 's', 'e', 'n']
         },
-        n: function (x,y,n) {
+        n: function (x, y, n) {
             n = n || 8;
-            var n2 = n>>1; // half of n
-            var number = (Math.floor(Math.atan2(x,y)/Math.PI*n2+1/n)+n2) % n; // seems like there is a little bug here
-            return {n: number, t: directionsVariants.classes[n][ number ]};
+            var n2 = n >> 1; // half of n
+            var number = (Math.floor(Math.atan2(x, y) / Math.PI * n2 + 1 / n) + n2) % n; // seems like there is a little bug here
+            //return {n: number, t: directionsVariants.classes[n][number]};
+            return {n: number, t: (180 - Math.atan2(x, y) * (180 / Math.PI)).toFixed(0)};
         },
-        16: function (x,y) { // -> values in range [0, 16]
-            return directionsVariants.n(x,y,16);
+        16: function (x, y) { // -> values in range [0, 16]
+            return directionsVariants.n(x, y, 16);
         },
-        8: function (x,y) { // -> values in range [0, 8]
-            return directionsVariants.n(x,y,8);
+        8: function (x, y) { // -> values in range [0, 8]
+            return directionsVariants.n(x, y, 8);
         },
-        4: function (x,y) { // -> values in range [0, 4]
-            return directionsVariants.n(x,y,4);
+        4: function (x, y) { // -> values in range [0, 4]
+            return directionsVariants.n(x, y, 4);
         }
     };
 
     var defaultMovingCallback = function (geoObject, coords, direction) { // действие по умолчанию
             // перемещаем машинку
             geoObject.geometry.setCoordinates(coords);
-            // ставим машинке правильное направление - в данном случае меняем ей текст
-            geoObject.properties.set('iconContent', direction.t);
+            // ставим машинке правильное направление - в данном случае меняем ей текст (если получится — на стрелочку)
+            geoObject.properties.set('iconContent', directionsVariants.arrows[direction.t] || direction.t);
         },
         defaultCompleteCallback = function (geoObject) { // действие по умолчанию
             // приехали
@@ -51,7 +64,7 @@ var Car = (function () {
 
         var points, street,
             wayList = [],
-            // вспомогательные
+        // вспомогательные
             i, j, k, l, prev, cur, direction,
             getDirection = directionsVariants[options.directions],
             coordSystem = options.coordSystem;
@@ -76,11 +89,15 @@ var Car = (function () {
 
         // строим путь. берем 1 единицу расстояния, возвращаемого distance, за пройденный путь в единицу времени. в 1 единица времени - будет 1 смещение геоточки. ни разу не оптимальный, но наглядный алгоритм
         for (i = 0, l = points.length - 1; l; --l, ++i) {
-            var from = points[i], to = points[i+1], diff = [to[0]-from[0], to[1]-from[1]];
+            var from = points[i], to = points[i + 1], diff = [to[0] - from[0], to[1] - from[1]];
             direction = getDirection(diff[0], diff[1]);
             // каждую шестую, а то слишком медленно двигается. чрезмерно большая точность
             for (j = 0, k = Math.round(coordSystem.distance(from, to)); j < k; j += options.speed) {
-                wayList.push({coords: [from[0]+(diff[0]*j/k), from[1]+(diff[1]*j/k)], direction: direction, vector: diff});
+                wayList.push({
+                    coords: [from[0] + (diff[0] * j / k), from[1] + (diff[1] * j / k)],
+                    direction: direction,
+                    vector: diff
+                });
             }
         }
 
@@ -141,6 +158,10 @@ var Car = (function () {
                     // берем следующую точку
                     var nextPoint = that.waypoints.shift();
                     // и отправляем в пользовательский callback
+                    if (window.map == 'undefined') {
+                        console.warn('undefined');
+                    }
+                    window.map.setCenter(nextPoint.coords, 16);
                     (movingCallback || defaultMovingCallback)(that, nextPoint.coords, nextPoint.direction);
                 }, 42);
         };
@@ -150,4 +171,3 @@ var Car = (function () {
 
     return Car;
 }());
-
