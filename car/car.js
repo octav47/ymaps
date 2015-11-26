@@ -158,9 +158,6 @@ var Car = (function () {
                     // берем следующую точку
                     var nextPoint = that.waypoints.shift();
                     // и отправляем в пользовательский callback
-                    if (window.map == 'undefined') {
-                        console.warn('undefined');
-                    }
                     window.map.setCenter(nextPoint.coords, 16);
                     (movingCallback || defaultMovingCallback)(that, nextPoint.coords, nextPoint.direction);
                 }, 42);
