@@ -8,85 +8,16 @@
     <link rel="stylesheet" href="./car.css">
     <script src="http://api-maps.yandex.ru/2.0.15/?load=package.full&lang=ru-RU"></script>
 
-    <script src="./car.js"></script>
+    <script src="lib.car.js"></script>
 
-    <script type="text/javascript">
-        var map, car;
+    <script src="car.js"></script>
 
-        // Как только будет загружен API и готов DOM, выполняем инициализацию
-        ymaps.ready(function () {
-            "use strict";
-
-            window.map = new ymaps.Map("map", {
-                center: [45.293762, 34.199123],
-                zoom: 10
-            }, {
-                searchControlProvider: 'yandex#search'
-            });
-
-            (function () {
-                car = new Car({
-//                    iconLayout: ymaps.templateLayoutFactory.createClass(
-//                            '<div class="b-car b-car_blue b-car-direction-$[properties.direction]"></div>'
-//                    )
-                    iconLayout: ymaps.templateLayoutFactory.createClass(
-                            '<div class="circle" style="transform: rotate($[properties.direction]deg)"><i class="fa fa-2x fa-rotate-180 fa-space-shuttle"></i></div>'
-                    )
-                });
-
-                // Прокладывание маршрута от станции метро "Смоленская"
-                // до станции Третьяковская (маршрут должен проходить через метро "Кропоткинская").
-                // Точки маршрута можно задавать 3 способами:  как строка, как объект или как массив геокоординат.
-                ymaps.route([
-                    'Крым, Севастополь',
-                    {
-                        type: 'viaPoint', // метро Кропоткинская - транзитная точка (проезжать через эту точку, но не останавливаться в ней)
-                        point: 'Крым, Алушта'
-                    }, {
-                        type: 'viaPoint', // через третьяковскую галерею
-                        point: 'Крым, Симферополь'
-                    },
-                    'Крым, Джанкой' // и до метро "Третьяковская"
-                ], {
-                    // Опции маршрутизатора
-                    mapStateAutoApply: true // автоматически позиционировать карту
-                }).then(function (route) {
-                    // Задание контента меток в начальной и конечной точках
-                    var points = route.getWayPoints();
-
-                    points.get(0).properties.set("iconContent", "А");
-                    points.get(1).properties.set("iconContent", "Б");
-
-                    // Добавление маршрута на карту
-                    map.geoObjects.add(route);
-                    // И "машинку" туда же
-                    map.geoObjects.add(car);
-
-                    // Отправляем машинку по полученному маршруту простым способом
-                    // car.moveTo(route.getPaths().get(0).getSegments());
-                    // или чуть усложненным: с указанием скорости,
-                    car.moveTo(route.getPaths().get(0).getSegments(), {
-                        speed: 20,
-                        directions: 8
-                    }, function (geoObject, coords, direction) { // тик движения
-                        // перемещаем машинку
-                        geoObject.geometry.setCoordinates(coords);
-                        // ставим машинке правильное направление - в данном случае меняем ей текст
-                        geoObject.properties.set('direction', direction.t);
-
-                    }, function (geoObject) { // приехали
-                        geoObject.properties.set('balloonContent', "Приехали!");
-                        geoObject.balloon.open();
-                    });
-
-                }, function (error) {
-                    console.error("Возникла ошибка: " + error.message);
-                });
-            })();
-        });
-    </script>
 </head>
 <body>
 <div id="map" style="width: 100%; height: 800px"></div>
+
+<script>
+    $('#map').height($(window).height());
+</script>
 </body>
 </html>

@@ -1,170 +1,124 @@
-/**
- * fileOverview Класс анимированной машинки
- * @see http://ymlib.narod.ru/1.1/demos/animate.html
- * Версия для АПИ 2.0
- * @author <a href="mailto:qfox@ya.ru">Alex Yaroshevich</a>
- */
+﻿﻿
+var _gl = {
+    routes: [
+        'Москва, метро Лубянка',
+        'Москва, метро Охотный ряд',
+        'Москва, метро Тверская',
+        'Москва, метро Площадь Революции',
+        'Москва, метро метро Бибилиотека им. Ленина',
+        'Москва, метро Тургеневская',
+        'Москва, метро Трубная',
+        'Москва, метро Арбатская',
+        'Москва, метро Красные Ворота',
+        'Москва, метро Кропоткинская'
+    ]
+};
 
-var Car = (function () {
-    "use strict";
+var map, cars = {};
 
-    // делаем заготовку для кол-ва направлений. 4, 8 или 16 (+, x, *)
-    var directionsVariants = {
-        // стрелочки для разных направлений (нет стрелочек для 16)
-        arrows: {
-            w: '←',
-            sw: '↙',
-            s: '↓',
-            se: '↘',
-            e: '→',
-            ne: '↗',
-            n: '↑',
-            nw: '↖'
-        },
-        // возможные направления для разной степени точности
-        classes: {
-            16: ['w', 'sww', 'sw', 'ssw', 's', 'sse', 'se', 'see', 'e', 'nee', 'ne', 'nne', 'n', 'nnw', 'nw', 'nww'],
-            8: ['w', 'sw', 's', 'se', 'e', 'ne', 'n', 'nw'],
-            4: ['w', 's', 'e', 'n']
-        },
-        n: function (x, y, n) {
-            n = n || 8;
-            var n2 = n >> 1; // half of n
-            var number = (Math.floor(Math.atan2(x, y) / Math.PI * n2 + 1 / n) + n2) % n; // seems like there is a little bug here
-            //return {n: number, t: directionsVariants.classes[n][number]};
-            return {n: number, t: (180 - Math.atan2(x, y) * (180 / Math.PI)).toFixed(0)};
-        },
-        16: function (x, y) { // -> values in range [0, 16]
-            return directionsVariants.n(x, y, 16);
-        },
-        8: function (x, y) { // -> values in range [0, 8]
-            return directionsVariants.n(x, y, 8);
-        },
-        4: function (x, y) { // -> values in range [0, 4]
-            return directionsVariants.n(x, y, 4);
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getRandomRoute(length) {
+    if (length === undefined || length < 2) {
+        length = 2;
+    }
+    var route = [], points = [].concat(_gl.routes);
+    for (var i = 0; i < length; i++) {
+        var rand = getRandomInt(0, points.length - 1),
+            el = points[rand];
+        points.splice(rand, 1);
+        if (i !== 0 && i !== length - 1) {
+            route.push({
+                type: 'viaPoint',
+                point: el
+            });
+        } else {
+            route.push(el);
         }
-    };
+    }
+    return route;
+}
 
-    var defaultMovingCallback = function (geoObject, coords, direction) { // действие по умолчанию
+function makeCarID() {
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    for (var i = 0; i < 10; i++)
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    return text;
+}
+
+function startCar(car, route) {
+    car = new Car({
+        iconLayout: ymaps.templateLayoutFactory.createClass(
+            '<div class="circle" style="transform: rotate($[properties.direction]deg)"></div>'
+        )
+    });
+
+    ymaps.route(route, {
+        mapStateAutoApply: false // автоматически позиционировать карту
+    }).then(function (route) {
+        console.log(route);
+        route.getPaths().options.set({
+            strokeColor: '00000000',
+            opacity: 0
+        });
+        route.getViaPoints().options.set({
+            opacity: 0,
+            visible: false
+        });
+        route.getWayPoints().options.set({
+            opacity: 0,
+            visible: false
+        });
+        // Задание контента меток в начальной и конечной точках
+        var points = route.getWayPoints();
+
+        points.get(0).properties.set("iconContent", "А");
+        points.get(1).properties.set("iconContent", "Б");
+
+        // Добавление маршрута на карту
+        map.geoObjects.add(route);
+        // И "машинку" туда же
+        map.geoObjects.add(car);
+
+        // Отправляем машинку по полученному маршруту простым способом
+        // car.moveTo(route.getPaths().get(0).getSegments());
+        // или чуть усложненным: с указанием скорости,
+        car.moveTo(route.getPaths().get(0).getSegments(), {
+            speed: 40,
+            directions: 8
+        }, function (geoObject, coords, direction) { // тик движения
             // перемещаем машинку
             geoObject.geometry.setCoordinates(coords);
-            // ставим машинке правильное направление - в данном случае меняем ей текст (если получится — на стрелочку)
-            geoObject.properties.set('iconContent', directionsVariants.arrows[direction.t] || direction.t);
-        },
-        defaultCompleteCallback = function (geoObject) { // действие по умолчанию
-            // приехали
-            geoObject.properties.set('iconContent', "Приехали!");
-        };
+            // ставим машинке правильное направление - в данном случае меняем ей текст
+            geoObject.properties.set('direction', direction.t);
 
-    // нормализуем в один массив точек сегметны из ymaps
-    var makeWayPointsFromSegments = function (segments, options) {
-        options = options || {};
-        options.directions = [4, 8, 16].indexOf(options.directions) >= 0 ? options.directions : 8; // must be 4, 8, or 16
-        options.speed = options.speed || 6;
+        }, function (geoObject) { // приехали
+            geoObject.options.set({
+                visible: false
+            });
+            startCar(car, getRandomRoute(getRandomInt(2, 4)));
+        });
 
-        var points, street,
-            wayList = [],
-        // вспомогательные
-            i, j, k, l, prev, cur, direction,
-            getDirection = directionsVariants[options.directions],
-            coordSystem = options.coordSystem;
+    }, function (error) {
+        console.error("Возникла ошибка: " + error.message);
+    });
+}
 
-        // открываю массив с точками
-        points = [];
-        // выполняю операцию для всех сегментов
-        for (i = 0, l = segments.length; i < l; i++) {
-            // беру координаты начала и конца сегмента
-            street = segments[i].getCoordinates();
-            // и добавляю КАЖДУЮ ИЗ НИХ в массив, чтобы получить полный список точек
-            for (j = 0, k = street.length; j < k; j++) {
-                cur = street[j];
-                // пропускаем дубли
-                if (prev && prev[0].toPrecision(10) === cur[0].toPrecision(10) && prev[1].toPrecision(10) === cur[1].toPrecision(10)) {
-                    continue;
-                }
-                points.push(cur);
-                prev = cur;
-            }
-        }
+ymaps.ready(function () {
+    "use strict";
 
-        // строим путь. берем 1 единицу расстояния, возвращаемого distance, за пройденный путь в единицу времени. в 1 единица времени - будет 1 смещение геоточки. ни разу не оптимальный, но наглядный алгоритм
-        for (i = 0, l = points.length - 1; l; --l, ++i) {
-            var from = points[i], to = points[i + 1], diff = [to[0] - from[0], to[1] - from[1]];
-            direction = getDirection(diff[0], diff[1]);
-            // каждую шестую, а то слишком медленно двигается. чрезмерно большая точность
-            for (j = 0, k = Math.round(coordSystem.distance(from, to)); j < k; j += options.speed) {
-                wayList.push({
-                    coords: [from[0] + (diff[0] * j / k), from[1] + (diff[1] * j / k)],
-                    direction: direction,
-                    vector: diff
-                });
-            }
-        }
-
-        return wayList;
-    };
-
-    /**
-     * Класс машинки.
-     * TODO: make it a geoObject with right interface.
-     * @class
-     * @name Car
-     * @param {Object} [options] Опции машики.
-     */
-    var Car = function (options) {
-        var properties = {
-            // Описываем геометрию типа "Точка".
-            geometry: {
-                type: "Point",
-                coordinates: [55.75062, 37.62561]
-            }
-        };
-        options = options || {};
-        options.preset = options.preset || 'twirl#greenStretchyIcon';
-        var result = new ymaps.GeoObject(properties, options);
-        result.coordSystem = options.coordSystem;
-        result.waypoints = [];
-
-        result.stop = function () {
-            // чистим старый маршрут
-            this.waypoints.length = 0;
-        };
-        /**
-         * Метод анимации движения машики по марщруту.
-         * @function
-         * @name Car.moveTo
-         * @param {Array} segments Массив сегментов маршрута.
-         * @param {Object} [options] Опции анимации.
-         * @param {Function} movingCallback Функция обратного вызова по-сегментам маршрута.
-         * @param {Function} completeCallback Функция обратного вызова завершения анимации.
-         */
-        result.moveTo = function (segments, options, movingCallback, completeCallback) {
-            if (!segments) return;
-            options = options || {};
-            // ищем систему координат
-            options.coordSystem = options.coordSystem || this.coordSystem || this.getMap().options.get('projection').getCoordSystem();
-            // считаем скорость базируясь на текущем зуме: very dirty but works pretty cute
-            options.speed = options.speed || Math.round(80 / this.getMap().getZoom());
-            // Получаем точечки
-            this.waypoints = makeWayPointsFromSegments(segments, options);
-            // Запуск анимации
-            var that = this,
-                timer = setInterval(function () {
-                    // если точек больше нет - значит приехали
-                    if (that.waypoints.length === 0) {
-                        (completeCallback || defaultCompleteCallback)(that);
-                        return clearTimeout(timer);
-                    }
-                    // берем следующую точку
-                    var nextPoint = that.waypoints.shift();
-                    // и отправляем в пользовательский callback
-                    window.map.setCenter(nextPoint.coords, 16);
-                    (movingCallback || defaultMovingCallback)(that, nextPoint.coords, nextPoint.direction);
-                }, 42);
-        };
-
-        return result;
-    };
-
-    return Car;
-}());
+    window.map = new ymaps.Map("map", {
+        center: [55.753659, 37.620669],
+        zoom: 14
+    }, {
+        searchControlProvider: 'yandex#search'
+    });
+    for (var i = 0; i < 25; i++) {
+        startCar(cars[makeCarID()], getRandomRoute(getRandomInt(2, 4)));
+    }
+});

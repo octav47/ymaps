@@ -1,14 +1,16 @@
 .circle {
-    width: 58px;
+    width: 10px;
     /*height: 4px;*/
-    height: 48px;
-    line-height: 48px;
+    height: 10px;
+    /*line-height: 25px;*/
     /*border-radius: 10px;*/
     z-index: 9000;
     /*border: 1px solid black;*/
-    margin-left: -29px;
-    margin-top: -24px;
-    /*background-color: red;*/
+    border-radius: 10px;
+    margin-left: -5px;
+    margin-top: -5px;
+    /*margin: 0;*/
+    background-color: #000000;
     transform-origin: center center;
     /*text-align: center;*/
 }

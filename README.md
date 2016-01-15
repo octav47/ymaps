@@ -16,7 +16,7 @@ Examples: http://zxqfox.github.com/ymaps/examples/car/
 
 ### Simple example usage
 ```js
-$.getScript('car.js', function () {
+$.getScript('lib.car.js', function () {
   car = new Car();
   ymaps.route([
     'Москва, метро Смоленская', // from Smolenskaya subway station
@@ -29,7 +29,7 @@ $.getScript('car.js', function () {
 
 ### More complex
 ```js
-$.getScript('car.js', function () {
+$.getScript('lib.car.js', function () {
   car = new Car({
     // geoObject options
     iconLayout: ymaps.templateLayoutFactory.createClass(
